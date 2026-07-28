@@ -1,0 +1,26 @@
+DATA QUALITY SUMMARY
+
+1. Successfully loaded all 10 provided datasets.
+
+2. Dataset validation performed using:
+   - Shape
+   - Data types
+   - First five rows
+   - Missing value detection
+   - Duplicate row detection
+
+3. Findings:
+   - Most datasets contain no missing values.
+   - monthly_sip_inflows.csv contains missing values in the yoy_growth_pct column.
+     This appears expected because year-over-year growth cannot be calculated for the initial months.
+   - No duplicate rows were detected in any dataset.
+
+4. AMFI Validation:
+   - Total AMFI codes in fund_master: 40
+   - Total AMFI codes in nav_history: 40
+   - All NAV AMFI codes exist in fund_master.
+
+5. Live NAV:
+   Successfully fetched live NAV data from MFAPI and saved as:
+   - live_nav.csv
+   - live_nav.json
