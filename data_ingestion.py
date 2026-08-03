@@ -16,47 +16,116 @@ csv_files = sorted([
 ])
 
 for file in csv_files:
+
     print(f"\nDataset: {file}")
     print("-" * 80)
 
     path = os.path.join(RAW_FOLDER, file)
 
+    # Read dataset
     df = pd.read_csv(path)
 
-    # --------------------------
-    # Basic Cleaning
-    # --------------------------
+    # ---------------------------------------------------
+    # Basic Cleaning (Applied to all datasets)
+    # ---------------------------------------------------
 
     # Standardize column names
     df.columns = (
         df.columns.str.strip()
-                  .str.lower()
-                  .str.replace(" ", "_")
+        .str.lower()
+        .str.replace(" ", "_")
     )
 
     # Remove duplicate rows
     df.drop_duplicates(inplace=True)
 
-    # Convert date columns if present
+    # Convert date columns
     for col in df.columns:
         if "date" in col:
             try:
-                df[col] = pd.to_datetime(df[col])
+                df[col] = pd.to_datetime(df[col], errors="coerce")
             except:
                 pass
 
-    # --------------------------
-    # Save processed dataset
-    # --------------------------
+    # ---------------------------------------------------
+    # Dataset Specific Cleaning
+    # ---------------------------------------------------
+
+    # NAV History
+    if file == "02_nav_history.csv":
+
+        df = df.sort_values(["amfi_code", "date"])
+
+        df["nav"] = df.groupby("amfi_code")["nav"].ffill()
+
+        df = df[df["nav"] > 0]
+
+    # Investor Transactions
+    elif file == "08_investor_transactions.csv":
+
+        # Standardize transaction type
+        df["transaction_type"] = (
+            df["transaction_type"]
+            .astype(str)
+            .str.strip()
+            .str.title()
+        )
+
+        valid_types = ["Sip", "Lumpsum", "Redemption"]
+        df = df[df["transaction_type"].isin(valid_types)]
+
+        # Amount should be positive
+        df = df[df["amount_inr"] > 0]
+
+        # Standardize KYC Status
+        df["kyc_status"] = (
+            df["kyc_status"]
+            .astype(str)
+            .str.strip()
+            .str.title()
+        )
+
+    # Scheme Performance
+    elif file == "07_scheme_performance.csv":
+
+        return_columns = [
+            "return_1yr_pct",
+            "return_3yr_pct",
+            "return_5yr_pct",
+            "benchmark_3yr_pct"
+        ]
+
+        for col in return_columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        df["expense_ratio_pct"] = pd.to_numeric(
+            df["expense_ratio_pct"],
+            errors="coerce"
+        )
+
+        # Flag expense ratio anomalies
+        df["expense_ratio_valid"] = (
+            (df["expense_ratio_pct"] >= 0.1)
+            &
+            (df["expense_ratio_pct"] <= 2.5)
+        )
+
+    # ---------------------------------------------------
+    # Save Processed Dataset
+    # ---------------------------------------------------
 
     processed_file = file.replace(".csv", "_processed.csv")
-    processed_path = os.path.join(PROCESSED_FOLDER, processed_file)
+
+    processed_path = os.path.join(
+        PROCESSED_FOLDER,
+        processed_file
+    )
 
     df.to_csv(processed_path, index=False)
 
-    # --------------------------
-    # Print information
-    # --------------------------
+    # ---------------------------------------------------
+    # Report
+    # ---------------------------------------------------
 
     print("Shape:", df.shape)
 
@@ -77,6 +146,7 @@ for file in csv_files:
         print(missing[missing > 0])
 
     duplicates = df.duplicated().sum()
+
     print("Duplicate Rows:", duplicates)
 
     print("\nProcessed file saved to:")
